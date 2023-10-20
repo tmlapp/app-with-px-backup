@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "name": "{{ pxbackup.name }}",
+    "org_id": "{{ pxbackup.orgid }}"
+  },
+  "schedule_policy": {
+    "interval": {
+      "minutes": "15",
+      "retain": "7",
+      "incremental_count": {
+        "count": "6"
+      }
+    },
+    "for_object_lock": false,
+    "auto_delete": true
+  }
+}

@@ -1,0 +1,118 @@
+---
+- name: Deploy application with px-backup
+  hosts: localhost
+  vars:
+    debug: false
+    app:
+      namespace: <namespace of your app>
+    kubeconfig: <path to your kubeconfig>
+    pxbackup:
+      user: admin
+      password: <your px-backup ui password>
+      ui: <px-backup-ui url>
+      api: <px-backup api url>
+      name: <name for schedule policy and backup schedule>
+      orgid: default
+      backuplocation: <your backup location name>
+      cluster: <your cluster name>
+
+  tasks:
+  - name: deploy application
+    k8s:
+      kubeconfig: "{{ kubeconfig }}"
+      src: files/petclinic-with-namespace.yml
+      state: present
+
+### Add application to pxbackup
+  - name: get api token to px-backup
+    ansible.builtin.uri:
+      url: "http://{{ pxbackup.ui }}/auth/realms/master/protocol/openid-connect/token"
+      method: POST
+      body:
+        client_id: pxcentral
+        grant_type: password
+        username: "{{ pxbackup.user }}"
+        password: "{{ pxbackup.password }}"
+      body_format: form-urlencoded
+    register: pxbackup_auth
+
+  - name: Debug pxbackup_auth
+    debug:
+      var: pxbackup_auth
+    when: debug
+
+  - name: create schedule policy
+    ansible.builtin.uri:
+      url: "http://{{ pxbackup.api }}/v1/schedulepolicy"
+      method: POST
+      body_format: json
+      headers:
+        Authorization: "bearer {{ pxbackup_auth.json.access_token }}"
+      body: "{{ lookup('ansible.builtin.template', 'schedulepolicy.json.j2') }}"
+      status_code: [200, 409]
+    register: schedule_create
+
+  - name: Debug schedule_create
+    debug:
+      var: schedule_create
+    when: debug
+
+  - name: lookup schedule policy uuid
+    ansible.builtin.uri:
+      url: "http://{{ pxbackup.api }}/v1/schedulepolicy/{{ pxbackup.orgid }}"
+      body_format: json
+      headers:
+        Authorization: "bearer {{ pxbackup_auth.json.access_token }}"
+      body:
+        orgid: "{{ pxbackup.orgid }}"
+    register: schedule_policy_details
+   
+  - name: Debug schedule_policy_details
+    debug:
+      var: schedule_policy_details
+    when: debug
+
+  - name: set schedule_policy_uid
+    set_fact:
+      schedule_policy_uid: "{{ schedule_policy_details.json | community.general.json_query(json_query) }}"
+    vars:
+      json_query: "schedule_policies[?metadata.name=='{{ pxbackup.name }}'].metadata.uid|[0]"
+
+  - name: lookup backup location uuid
+    ansible.builtin.uri:
+      url: "http://{{ pxbackup.api }}/v1/backuplocation/{{ pxbackup.orgid }}"
+      body_format: json
+      headers:
+        Authorization: "bearer {{ pxbackup_auth.json.access_token }}"
+      body:
+        orgid: "{{ pxbackup.orgid }}"
+    register: backup_location_details
+   
+  - name: Debug backup_location_details
+    debug:
+      var: backup_location_details
+    when: debug
+
+  - name: set backup_location_uid
+    set_fact:
+      backup_location_uid: "{{ backup_location_details.json | community.general.json_query(json_query) }}"
+    vars:
+      json_query: "backup_locations[?metadata.name=='{{ pxbackup.backuplocation }}'].metadata.uid|[0]"
+
+  - name: add backup schedule
+    ansible.builtin.uri:
+      url: "http://{{ pxbackup.api }}/v1/backupschedule"
+      method: POST
+      body_format: json
+      headers:
+        Authorization: "bearer {{ pxbackup_auth.json.access_token }}"
+      body: "{{ lookup('ansible.builtin.template', 'backupschedule.json.j2') }}"
+      status_code: [200, 409]
+    register: backup_create
+    
+  - name: Debug backup_create
+    debug:
+      var: backup_create
+    when: debug
+
+
