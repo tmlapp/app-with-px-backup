@@ -5,7 +5,7 @@ Edit the deploy_app.yaml file and edit the `vars` section for your environment:
   vars:
     debug: false
     app:
-      namespace: <namespace of your app>
+      namespace: <namespace of your app> # default petclinic
     kubeconfig: <path to your kubeconfig>
     pxbackup:
       user: admin
