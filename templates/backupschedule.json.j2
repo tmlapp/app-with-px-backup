@@ -1,0 +1,21 @@
+{
+  "metadata": {
+    "name": "{{ pxbackup.name }}",
+    "org_id": "{{ pxbackup.orgid }}"
+  },
+  "schedule_policy": "{{ pxbackup.name }}",
+  "reclaim_policy": "Invalid",
+  "backup_location": "{{ pxbackup.backuplocation }}",
+  "cluster": "{{ pxbackup.cluster }}",
+  "namespaces": [
+    "{{ app.namespace }}"
+  ],
+  "schedule_policy_ref": {
+    "name": "{{ pxbackup.name }}",
+    "uid": "{{ schedule_policy_uid }}"
+  },
+  "backup_location_ref": {
+    "name": "{{ pxbackup.backuplocation }}",
+    "uid": "{{ backup_location_uid }}"
+  }
+}
